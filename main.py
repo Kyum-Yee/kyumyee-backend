@@ -12,6 +12,7 @@ MCP 추가 방법:
 
 import os
 import sys
+import subprocess
 import contextlib
 from collections.abc import AsyncIterator
 
@@ -22,9 +23,15 @@ from starlette.requests import Request
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 
 # ── Delusionist Factory MCP ──────────────────────────────────────────────────
-# buildCommand: git clone .../delusionist_factory_personal.git delusionist
 _delusionist_dir = os.path.join(os.path.dirname(__file__), "delusionist")
-os.makedirs(os.path.join(_delusionist_dir, "input"), exist_ok=True)  # gitignored in source
+if not os.path.exists(os.path.join(_delusionist_dir, "mcp_server.py")):
+    subprocess.run(
+        ["git", "clone", "--depth", "1",
+         "https://github.com/Kyum-Yee/delusionist_factory_personal.git",
+         _delusionist_dir],
+        check=True,
+    )
+os.makedirs(os.path.join(_delusionist_dir, "input"), exist_ok=True)
 sys.path.insert(0, _delusionist_dir)
 
 from mcp_server import server as delusionist_server  # noqa: E402

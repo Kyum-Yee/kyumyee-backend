@@ -2,7 +2,7 @@ services:
   - type: web
     runtime: python
     name: kyumyee-playground
-    buildCommand: pip install -r requirements.txt && git clone --depth 1 https://github.com/Kyum-Yee/delusionist_factory_personal.git delusionist
+    buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     plan: free
     envVars:
