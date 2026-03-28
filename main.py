@@ -13,6 +13,7 @@ MCP 추가 방법:
 import os
 import sys
 import subprocess
+import importlib.util
 import contextlib
 from collections.abc import AsyncIterator
 
@@ -34,7 +35,18 @@ if not os.path.exists(os.path.join(_delusionist_dir, "mcp_server.py")):
 os.makedirs(os.path.join(_delusionist_dir, "input"), exist_ok=True)
 sys.path.insert(0, _delusionist_dir)
 
+# uvicorn registers THIS file as sys.modules['main'], so delusionist's mcp_server.py
+# would pick up the wrong 'main' when it does `from main import DelusionistFactory`.
+# Temporarily swap sys.modules['main'] to delusionist's main, then restore.
+_spec = importlib.util.spec_from_file_location("main", os.path.join(_delusionist_dir, "main.py"))
+_delusionist_main = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_delusionist_main)
+_saved_main = sys.modules.get("main")
+sys.modules["main"] = _delusionist_main
+
 from mcp_server import server as delusionist_server  # noqa: E402
+
+sys.modules["main"] = _saved_main  # restore
 
 delusionist_sm = StreamableHTTPSessionManager(app=delusionist_server, stateless=True)
 
