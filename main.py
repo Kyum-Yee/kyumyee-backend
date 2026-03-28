@@ -48,7 +48,7 @@ from mcp_server import server as delusionist_server  # noqa: E402
 
 sys.modules["main"] = _saved_main  # restore
 
-delusionist_sm = StreamableHTTPSessionManager(app=delusionist_server, stateless=True)
+delusionist_sm = StreamableHTTPSessionManager(app=delusionist_server, stateless=False)
 
 # ── 새 MCP는 위 패턴 반복 ──────────────────────────────────────────────────────
 
