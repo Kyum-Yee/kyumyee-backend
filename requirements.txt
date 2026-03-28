@@ -1,5 +1,5 @@
-mcp>=1.0.0
-starlette
-uvicorn[standard]
-anyio
-sse-starlette
+mcp>=1.0.0,<2.0.0
+starlette>=0.46.0,<0.47.0
+uvicorn[standard]>=0.34.0,<0.35.0
+anyio>=4.0.0,<5.0.0
+sse-starlette>=2.0.0,<3.0.0

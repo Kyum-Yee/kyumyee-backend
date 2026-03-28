@@ -18,20 +18,47 @@ import contextlib
 from collections.abc import AsyncIterator
 
 from starlette.applications import Starlette
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Mount, Route
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
 from starlette.requests import Request
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 
+
+# ── Auth Middleware ──────────────────────────────────────────────────────────
+class MCPAuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        if request.url.path.startswith("/delusionist/mcp"):
+            api_key = os.environ.get("MCP_API_KEY", "")
+            if not api_key or request.headers.get("Authorization") != f"Bearer {api_key}":
+                return Response("Unauthorized", status_code=401)
+        return await call_next(request)
+
+
 # ── Delusionist Factory MCP ──────────────────────────────────────────────────
+_DELUSIONIST_REPO = "https://github.com/Kyum-Yee/delusionist_factory_personal.git"
+_DELUSIONIST_SHA = os.environ.get("DELUSIONIST_COMMIT_SHA", "")
 _delusionist_dir = os.path.join(os.path.dirname(__file__), "delusionist")
 if not os.path.exists(os.path.join(_delusionist_dir, "mcp_server.py")):
-    subprocess.run(
-        ["git", "clone", "--depth", "1",
-         "https://github.com/Kyum-Yee/delusionist_factory_personal.git",
-         _delusionist_dir],
-        check=True,
-    )
+    try:
+        if _DELUSIONIST_SHA:
+            subprocess.run(
+                ["git", "clone", "--no-checkout", _DELUSIONIST_REPO, _delusionist_dir],
+                check=True, capture_output=True, text=True,
+            )
+            subprocess.run(
+                ["git", "-C", _delusionist_dir, "checkout", _DELUSIONIST_SHA],
+                check=True, capture_output=True, text=True,
+            )
+        else:
+            subprocess.run(
+                ["git", "clone", "--depth", "1", _DELUSIONIST_REPO, _delusionist_dir],
+                check=True, capture_output=True, text=True,
+            )
+    except subprocess.CalledProcessError as e:
+        print(f"[ERROR] git clone failed: {e.stderr}", file=sys.stderr)
+        sys.exit(1)
 os.makedirs(os.path.join(_delusionist_dir, "input"), exist_ok=True)
 sys.path.insert(0, _delusionist_dir)
 
@@ -71,4 +98,12 @@ app = Starlette(
         Mount("/delusionist/mcp", app=delusionist_sm.handle_request),
         # 새 MCP: Mount("/<name>/mcp", app=<name>_sm.handle_request),
     ],
+)
+
+app.add_middleware(MCPAuthMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[],   # 브라우저 클라이언트 없음 — 허용 origin 없음
+    allow_methods=["POST"],
+    allow_headers=["Authorization", "Content-Type", "Mcp-Session-Id"],
 )
