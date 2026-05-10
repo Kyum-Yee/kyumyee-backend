@@ -18,28 +18,19 @@ import contextlib
 from collections.abc import AsyncIterator
 
 from starlette.applications import Starlette
-from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Mount, Route
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse
 from starlette.requests import Request
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 
 from egg_web import build_stream, extract_egg_bytes
 
 
-# ── Auth Middleware ──────────────────────────────────────────────────────────
-class MCPAuthMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
-        if request.url.path.startswith("/delusionist/mcp"):
-            api_key = os.environ.get("MCP_API_KEY", "")
-            if not api_key or request.headers.get("Authorization") != f"Bearer {api_key}":
-                return Response("Unauthorized", status_code=401)
-        return await call_next(request)
-
-
 # ── Delusionist Factory MCP ──────────────────────────────────────────────────
-_DELUSIONIST_REPO = "https://github.com/Kyum-Yee/delusionist_factory_personal.git"
+# Auth was removed in favor of server-issued agent ids (see delutionist's
+# register_agent / release_agent). Each agent gets an isolated workspace.
+_DELUSIONIST_REPO = "https://github.com/Kyum-Yee/delutionist.git"
 _DELUSIONIST_SHA = os.environ.get("DELUSIONIST_COMMIT_SHA", "")
 _delusionist_dir = os.path.join(os.path.dirname(__file__), "delusionist")
 if not os.path.exists(os.path.join(_delusionist_dir, "mcp_server.py")):
@@ -148,10 +139,9 @@ app = Starlette(
     ],
 )
 
-app.add_middleware(MCPAuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://kyumyee-playground.vercel.app"],
     allow_methods=["GET", "POST"],
-    allow_headers=["Authorization", "Content-Type", "Mcp-Session-Id"],
+    allow_headers=["Content-Type", "Mcp-Session-Id"],
 )
