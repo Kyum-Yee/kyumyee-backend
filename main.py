@@ -24,8 +24,6 @@ from starlette.responses import JSONResponse
 from starlette.requests import Request
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 
-from egg_web import build_stream, extract_egg_bytes
-
 
 # ── Delusionist Factory MCP ──────────────────────────────────────────────────
 # Auth was removed in favor of server-issued agent ids (see delutionist's
@@ -84,56 +82,10 @@ async def health(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok"})
 
 
-MAX_TOTAL = 300 * 1024 * 1024  # 300 MB
-
-
-async def egg_extract(request: Request) -> JSONResponse:
-    try:
-        form = await request.form()
-        file_items = form.getlist("files")
-        if not file_items:
-            return JSONResponse({"success": False, "error": "No files uploaded"}, status_code=400)
-
-        parts: list[bytes] = []
-        total = 0
-        for item in file_items:
-            data = await item.read()
-            total += len(data)
-            if total > MAX_TOTAL:
-                return JSONResponse(
-                    {"success": False, "error": f"Total upload exceeds {MAX_TOTAL // 1024 // 1024} MB limit"},
-                    status_code=413,
-                )
-            parts.append(data)
-
-        archive_size = sum(len(p) for p in parts)
-        stream, is_split, volume_count = build_stream(parts)
-        files, _, is_solid = extract_egg_bytes(stream, detected_split=is_split)
-
-        total_files = sum(1 for f in files if not f["isDirectory"])
-        total_dirs = sum(1 for f in files if f["isDirectory"])
-        total_size = sum(f["size"] for f in files if not f["isDirectory"])
-
-        return JSONResponse({
-            "success": True,
-            "files": files,
-            "archiveSize": archive_size,
-            "isSplit": is_split,
-            "isSolid": is_solid,
-            "volumeCount": volume_count,
-            "totalFiles": total_files,
-            "totalDirs": total_dirs,
-            "totalSize": total_size,
-        })
-    except Exception as exc:
-        return JSONResponse({"success": False, "error": str(exc)}, status_code=400)
-
-
 app = Starlette(
     lifespan=lifespan,
     routes=[
         Route("/health", health),
-        Route("/egg-extract", egg_extract, methods=["POST", "GET"]),
         Mount("/delusionist/mcp", app=delusionist_sm.handle_request),
         # 새 MCP: Mount("/<name>/mcp", app=<name>_sm.handle_request),
     ],
